@@ -3,4 +3,18 @@
 
     <string name="app_name">无线升级</string>
 
+    <string name="txt_download">正在下载 ...</string>
+    <string name="txt_noupdate">当前系统已经是最新 !</string>
+    <string name="txt_checking">正在检查系统更新 ...</string>
+    <string name="txt_findupdate">找到系统升级包 !</string>
+    <string name="txt_ready">系统升级包下载完成 !</string>
+
+    <string name="btn_docheck">点击检查更新</string>
+    <string name="btn_download">下载系统更新</string>
+    <string name="btn_pause_dl">暂停</string>
+    <string name="btn_resume_dl">恢复</string>
+    <string name="btn_cancel_dl">取消</string>
+    <string name="btn_recheck">重新检查</string>
+    <string name="btn_apply">开始升级</string>
+
 </resources>

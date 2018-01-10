@@ -3,6 +3,7 @@ package com.rockcarry.update;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 
 import org.apache.http.HttpStatus;
@@ -26,18 +27,19 @@ public class Downloader {
     private Thread            mThread;
     private boolean           mPaused;
 
-    public static final int MSG_DOWNLOAD_DONE     = 100;
-    public static final int MSG_DOWNLOAD_CONNECT  = -1;
-    public static final int MSG_DOWNLOAD_START    = -2;
-    public static final int MSG_DOWNLOAD_PAUSED   = -3;
-    public static final int MSG_DOWNLOAD_FAILED   = -4;
+    public static final int MSG_DOWNLOAD_CONNECT  = 0;
+    public static final int MSG_DOWNLOAD_RUNNING  = 1;
+    public static final int MSG_DOWNLOAD_PAUSED   = 2;
+    public static final int MSG_DOWNLOAD_DONE     = 3;
+    public static final int MSG_DOWNLOAD_FAILED   = 4;
 
     public String mDownloadFileName;
     public String mDownloadUrlName;
     public int    mDownloadFileSize;
     public int    mDownloadFileOffset;
     public int    mDownloadStatus;
-    public String mAppDataPath;
+    public int    mDownloadProgress;
+
 
     public Downloader(Context context, Handler handler) {
         mContext    = context;
@@ -48,7 +50,7 @@ public class Downloader {
         mDownloadFileSize   = mSharedPref.getInt   ("mDownloadFileSize"  , 0 );
         mDownloadFileOffset = mSharedPref.getInt   ("mDownloadFileOffset", 0 );
         mDownloadStatus     = mSharedPref.getInt   ("mDownloadStatus"    , 0 );
-        mAppDataPath        = mContext.getDir("data", Context.MODE_PRIVATE).getAbsolutePath();
+        mDownloadProgress   = 100 * mDownloadFileOffset / mDownloadFileSize;
     }
 
     public void newTask(final String filename, final String urlname) {
@@ -139,15 +141,22 @@ public class Downloader {
             Log.d(TAG, "download file size  : " + mDownloadFileSize  );
             Log.d(TAG, "download file offset: " + mDownloadFileOffset);
 
-            mDownloadStatus = MSG_DOWNLOAD_START;
-            mHandler.sendEmptyMessage(mDownloadStatus);
             rf.setLength(mDownloadFileSize);
             rf.seek(mDownloadFileOffset);
             is = conn.getInputStream();
             while (!mPaused && (len = is.read(buf)) != -1) {
                 rf.write(buf, 0, len);
                 mDownloadFileOffset += len;
-                Log.d(TAG, "download progress: " + 100 * mDownloadFileOffset / mDownloadFileSize);
+                int progress = 100 * mDownloadFileOffset / mDownloadFileSize;
+                if (mDownloadProgress != progress) {
+                    mDownloadStatus   = MSG_DOWNLOAD_RUNNING;
+                    mDownloadProgress = progress;
+                    Message msg = new Message();
+                    msg.what    = MSG_DOWNLOAD_RUNNING;
+                    msg.arg1    = progress;
+                    mHandler.sendMessage(msg);
+                }
+//              Log.d(TAG, "download progress: " + mDownloadProgress);
             }
             mDownloadStatus = mDownloadFileOffset == mDownloadFileSize ? MSG_DOWNLOAD_DONE : MSG_DOWNLOAD_PAUSED;
             mHandler.sendEmptyMessage(mDownloadStatus);
@@ -201,15 +210,15 @@ public class Downloader {
         }
     }
 
-    static HostnameVerifier DO_NOT_VERIFY = new HostnameVerifier() {  
-        @Override  
-        public boolean verify(String hostname, SSLSession session) {  
-            // TODO Auto-generated method stub  
-            // System.out.println("Warning: URL Host: " + hostname + " vs. "  
-            // + session.getPeerHost());  
-            return true;  
-        }  
-    }; 
+    static HostnameVerifier DO_NOT_VERIFY = new HostnameVerifier() {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            // TODO Auto-generated method stub
+            // System.out.println("Warning: URL Host: " + hostname + " vs. "
+            // + session.getPeerHost());
+            return true;
+        }
+    };
 }
 
 

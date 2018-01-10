@@ -3,4 +3,18 @@
 
     <string name="app_name">Update</string>
 
+    <string name="txt_download">Download ...</string>
+    <string name="txt_noupdate">System is already the lastest !</string>
+    <string name="txt_checking">Checking the update now ...</string>
+    <string name="txt_findupdate">Find an update for device !</string>
+    <string name="txt_ready">Update package has been downloaded !</string>
+
+    <string name="btn_docheck">Click to Check Update</string>
+    <string name="btn_download">Download Update</string>
+    <string name="btn_pause_dl">Pause</string>
+    <string name="btn_resume_dl">Resume</string>
+    <string name="btn_cancel_dl">Cancel</string>
+    <string name="btn_recheck">Re-Check Update</string>
+    <string name="btn_apply">Apply Update</string>
+
 </resources>
