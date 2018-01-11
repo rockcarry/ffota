@@ -27,11 +27,12 @@ public class Downloader {
     private Thread            mThread;
     private boolean           mPaused;
 
-    public static final int MSG_DOWNLOAD_CONNECT  = 0;
-    public static final int MSG_DOWNLOAD_RUNNING  = 1;
-    public static final int MSG_DOWNLOAD_PAUSED   = 2;
-    public static final int MSG_DOWNLOAD_DONE     = 3;
-    public static final int MSG_DOWNLOAD_FAILED   = 4;
+    public static final int MSG_DOWNLOAD_CONNECTING= 0;
+    public static final int MSG_DOWNLOAD_CONNECTED = 1;
+    public static final int MSG_DOWNLOAD_RUNNING   = 2;
+    public static final int MSG_DOWNLOAD_PAUSED    = 3;
+    public static final int MSG_DOWNLOAD_DONE      = 4;
+    public static final int MSG_DOWNLOAD_FAILED    = 5;
 
     public String mDownloadFileName;
     public String mDownloadUrlName;
@@ -39,7 +40,6 @@ public class Downloader {
     public int    mDownloadFileOffset;
     public int    mDownloadStatus;
     public int    mDownloadProgress;
-
 
     public Downloader(Context context, Handler handler) {
         mContext    = context;
@@ -50,11 +50,14 @@ public class Downloader {
         mDownloadFileSize   = mSharedPref.getInt   ("mDownloadFileSize"  , 0 );
         mDownloadFileOffset = mSharedPref.getInt   ("mDownloadFileOffset", 0 );
         mDownloadStatus     = mSharedPref.getInt   ("mDownloadStatus"    , 0 );
-        mDownloadProgress   = 100 * mDownloadFileOffset / mDownloadFileSize;
+        if (mDownloadFileSize > 0) {
+            mDownloadProgress = 100 * mDownloadFileOffset / mDownloadFileSize;
+        }
     }
 
     public void newTask(final String filename, final String urlname) {
         if (mThread != null) return;
+        mPaused = false;
         mThread = new Thread() {
             @Override
             public void run() {
@@ -67,6 +70,7 @@ public class Downloader {
 
     public void resumeTask() {
         if (mThread != null) return;
+        mPaused = false;
         mThread = new Thread() {
             @Override
             public void run() {
@@ -78,7 +82,10 @@ public class Downloader {
     }
 
     public void pauseTask() {
-        mPaused = true;
+        try {
+            mPaused = true;
+            if (mThread != null) mThread.join();
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void download(String filename, String urlname, int offset) {
@@ -94,6 +101,7 @@ public class Downloader {
         mDownloadUrlName    = urlname;
         mDownloadFileSize   = 0;
         mDownloadFileOffset = offset;
+        mDownloadProgress   = 0;
 
         try {
             url  = new URL (mDownloadUrlName );
@@ -101,8 +109,8 @@ public class Downloader {
             rf   = new RandomAccessFile(file, "rwd");
 
             // get download file size
-            mDownloadStatus = MSG_DOWNLOAD_CONNECT;
-            mHandler.sendEmptyMessage(mDownloadStatus);
+            mDownloadStatus = MSG_DOWNLOAD_CONNECTING;
+            if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
             conn = (HttpURLConnection) url.openConnection();
             if (url.getProtocol().toLowerCase().equals("https")) {
                 trustAllHosts();
@@ -113,13 +121,14 @@ public class Downloader {
             conn.setRequestProperty("Accept-Encoding", "identity");
             if (conn.getResponseCode() == HttpStatus.SC_OK) {
                 mDownloadFileSize = conn.getContentLength();
-            }
-            if (mDownloadFileSize <= 0) {
-                Log.w(TAG, "invalid download file size !");
+            } else {
+                Log.w(TAG, "failed to get http response code !");
                 mDownloadStatus = MSG_DOWNLOAD_FAILED;
-                mHandler.sendEmptyMessage(mDownloadStatus);
+                if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
                 return;
             }
+            mDownloadStatus = MSG_DOWNLOAD_CONNECTED;
+            if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
 
             // try partial download
             conn = (HttpURLConnection) url.openConnection();
@@ -151,20 +160,17 @@ public class Downloader {
                 if (mDownloadProgress != progress) {
                     mDownloadStatus   = MSG_DOWNLOAD_RUNNING;
                     mDownloadProgress = progress;
-                    Message msg = new Message();
-                    msg.what    = MSG_DOWNLOAD_RUNNING;
-                    msg.arg1    = progress;
-                    mHandler.sendMessage(msg);
+                    if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
                 }
 //              Log.d(TAG, "download progress: " + mDownloadProgress);
             }
             mDownloadStatus = mDownloadFileOffset == mDownloadFileSize ? MSG_DOWNLOAD_DONE : MSG_DOWNLOAD_PAUSED;
-            mHandler.sendEmptyMessage(mDownloadStatus);
+            if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
         } catch (Exception e) {
             Log.w(TAG, "download failed !");
             e.printStackTrace();
             mDownloadStatus = MSG_DOWNLOAD_FAILED;
-            mHandler.sendEmptyMessage(mDownloadStatus);
+            if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
         } finally {
             try {
                 if (rf != null) rf.close();
@@ -190,11 +196,9 @@ public class Downloader {
                 public java.security.cert.X509Certificate[] getAcceptedIssuers() {
                     return new java.security.cert.X509Certificate[] {};
                 }
-
                 public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
                     Log.i(TAG, "checkClientTrusted");
                 }
-
                 public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
                     Log.i(TAG, "checkServerTrusted");
                 }
@@ -213,9 +217,6 @@ public class Downloader {
     static HostnameVerifier DO_NOT_VERIFY = new HostnameVerifier() {
         @Override
         public boolean verify(String hostname, SSLSession session) {
-            // TODO Auto-generated method stub
-            // System.out.println("Warning: URL Host: " + hostname + " vs. "
-            // + session.getPeerHost());
             return true;
         }
     };

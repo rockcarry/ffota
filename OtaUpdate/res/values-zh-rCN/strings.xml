@@ -3,18 +3,26 @@
 
     <string name="app_name">无线升级</string>
 
-    <string name="txt_download">正在下载 ...</string>
-    <string name="txt_noupdate">当前系统已经是最新 !</string>
+    <string name="txt_noupdate">当前系统已是最新 !</string>
     <string name="txt_checking">正在检查系统更新 ...</string>
     <string name="txt_findupdate">找到系统升级包 !</string>
     <string name="txt_ready">系统升级包下载完成 !</string>
 
-    <string name="btn_docheck">点击检查更新</string>
-    <string name="btn_download">下载系统更新</string>
+    <string name="btn_docheck">点击检查系统更新</string>
+    <string name="btn_download">下载升级包</string>
     <string name="btn_pause_dl">暂停</string>
     <string name="btn_resume_dl">恢复</string>
     <string name="btn_cancel_dl">取消</string>
     <string name="btn_recheck">重新检查</string>
     <string name="btn_apply">开始升级</string>
 
+    <string name="dl_connecting">连接服务器...</string>
+    <string name="dl_connected">已连接</string>
+    <string name="dl_paused">已暂停</string>
+    <string name="dl_done">下载完成</string>
+    <string name="dl_failed">下载出错</string>
+
+    <string name="txt_devinfo_fmt" formatted="false">"设备信息\n\n设备型号　：%s\n安卓版本号：%s\n固件版本号：%s\n版本日期　：%s\n升级标识　：%s\n"</string>
+    <string name="txt_update_fmt0" formatted="false">"升级包信息\n\n版本日期：%s\n检验码　：%s\n\n更新说明：\n\n%s\n"</string>
+    <string name="txt_update_fmt1" formatted="false">"升级包信息\n\n版本日期：%s\n文件大小：%s\n检验码　：%s\n\n更新说明：\n\n%s\n"</string>
 </resources>

@@ -5,24 +5,36 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.IBinder;
+import android.os.SystemProperties;
 import android.util.Log;
+
+import java.io.*;
+import java.util.*;
 
 public class OtaService extends Service {
     public  static final String OTAUPDATE_SHARED_PREFS = "OTAUPDATE_SHARED_PREFS";
-    public  static final String OTAUPDATE_AUTOCHECK    = "OTAUPDATE_AUTOCHECK";
     public  static final String OTAUPDATE_STATUS       = "OTAUPDATE_STATUS";
-    public  static final int    OTA_STATUS_NOUPDATE    = 0;
-    public  static final int    OTA_STATUS_CHECKING    = 1;
-    public  static final int    OTA_STATUS_HASUPDATE   = 2;
-    public  static final int    OTA_STATUS_DOWNLOADING = 3;
-    public  static final int    OTA_STATUS_READY       = 4;
+    public  static final int    OTA_STATUS_INIT        = 0;
+    public  static final int    OTA_STATUS_NOUPDATE    = 1;
+    public  static final int    OTA_STATUS_CHECKING    = 2;
+    public  static final int    OTA_STATUS_HASUPDATE   = 3;
+    public  static final int    OTA_STATUS_DOWNLOADING = 4;
+    public  static final int    OTA_STATUS_READY       = 5;
+
+    public  String mDeviceInfo     = "";
+    private String mUpdateIniUrl   = "";
+    private String mUpdateZipUrl   = "";
+    public  String mUpdateTarget   = "";
+    public  String mUpdateCheckSum = "";
+    public  String mUpdateDetail   = "";
 
     private static final String TAG = "OtaService";
     private static final String OTASERVICE_SHARED_PREFS = "OTASERVICE_SHARED_PREFS";
-    private static final String OTA_HOST_URL = "https://github.com/rockcarry/ffota/files/";
+    private static final String OTA_HOST_URL = "https://rockcarry.github.io/ffota/files/";
 
     private OtaBinder         mBinder     = new OtaBinder();
     private Downloader        mDownloader = null;
@@ -33,19 +45,26 @@ public class OtaService extends Service {
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate");
-        mDownloader = new Downloader(this, mServiceHandler);
-        mAppDataPath= getDir("data", Context.MODE_PRIVATE).getAbsolutePath();
-        mSharedPref = getSharedPreferences(OTASERVICE_SHARED_PREFS, Context.MODE_PRIVATE);
-        mOtaStatus  = mSharedPref.getInt("mOtaStatus", OTA_STATUS_NOUPDATE);
+        mDownloader  = new Downloader(this, mServiceHandler);
+        mAppDataPath = getDir("data", Context.MODE_PRIVATE).getAbsolutePath();
+        mSharedPref  = getSharedPreferences(OTASERVICE_SHARED_PREFS, Context.MODE_PRIVATE);
+        mOtaStatus   = mSharedPref.getInt("mOtaStatus", OTA_STATUS_NOUPDATE);
+
+        mDeviceInfo  = String.format(getString(R.string.txt_devinfo_fmt),
+            Build.MODEL, Build.VERSION.RELEASE, Build.DISPLAY,
+            SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0],
+            SystemProperties.get("ro.product.otaid", "unknown"));
+        mUpdateIniUrl= OTA_HOST_URL + String.format("%s-%s-%s", SystemProperties.get("ro.product.otaid", "unknown"),
+            Build.VERSION.RELEASE, SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0]) + ".ini";
+
         switch (mOtaStatus) {
-        case OTA_STATUS_NOUPDATE:
-        case OTA_STATUS_CHECKING:
-            break;
         case OTA_STATUS_HASUPDATE:
-            break;
-        case OTA_STATUS_DOWNLOADING:
-            break;
         case OTA_STATUS_READY:
+        case OTA_STATUS_DOWNLOADING:
+            parseUpdateInfo();
+            break;
+        case OTA_STATUS_CHECKING:
+            checkUpdate();
             break;
         }
     }
@@ -53,6 +72,7 @@ public class OtaService extends Service {
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
+        downloadPause(true);
         SharedPreferences.Editor editor = mSharedPref.edit();
         editor.putInt("mOtaStatus", mOtaStatus);
         editor.commit();
@@ -67,8 +87,60 @@ public class OtaService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand");
-//      return super.onStartCommand(intent, flags, startId);
         return START_STICKY;
+    }
+
+    private void parseUpdateInfo() {
+        FileInputStream is     = null;
+        BufferedReader  reader = null;
+        String          lang   = "[" + Locale.getDefault().getLanguage() + "]";
+
+        mUpdateTarget   = "";
+        mUpdateCheckSum = "";
+        mUpdateDetail   = "";
+        mUpdateZipUrl   = "";
+        try {
+            File file = new File(mAppDataPath + "/update.ini");
+            is     = new FileInputStream(file);
+            reader = new BufferedReader(new InputStreamReader(is, "utf-8"));
+            boolean first  = true;
+            String  buffer = null;
+            while ((buffer = reader.readLine()) != null) {
+                //++ remove utf-8 bom
+                if (first) {
+                    if (buffer.startsWith("\uFEFF")) {
+                        buffer = buffer.replace("\uFEFF", "");
+                    }
+                    first = false;
+                }
+                //-- remove utf-8 bom
+                String[] list = buffer.split("\\s*:\\s*");
+                if (list.length >= 2) {
+                    if (list[0].equals("target")) {
+                        mUpdateTarget = list[1];
+                        mUpdateZipUrl = mUpdateIniUrl.replace(".ini", "");
+                        mUpdateZipUrl+= "-to-" + mUpdateTarget + ".zip";
+                    }
+                    if (list[0].equals("md5"   )) mUpdateCheckSum = list[1];
+                } else {
+                    if (list[0].equals(lang)) {
+                        break;
+                    }
+                }
+            }
+            while ((buffer = reader.readLine()) != null) {
+                if (buffer.equals("<<<")) continue;
+                if (buffer.equals(">>>")) break;
+                mUpdateDetail += buffer + "\n";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (reader != null) reader.close();
+                if (is     != null) is    .close();
+            } catch (Exception e) {}
+        }
     }
 
     private Handler mActivityHandler = null;
@@ -76,26 +148,29 @@ public class OtaService extends Service {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            case Downloader.MSG_DOWNLOAD_CONNECT:
-                if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
-                }
-                break;
+            case Downloader.MSG_DOWNLOAD_CONNECTING:
+            case Downloader.MSG_DOWNLOAD_CONNECTED:
             case Downloader.MSG_DOWNLOAD_RUNNING:
+            case Downloader.MSG_DOWNLOAD_PAUSED:
                 if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
-                    int progress = msg.arg1;
+                    if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
                 }
                 break;
             case Downloader.MSG_DOWNLOAD_DONE:
                 if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
+                    mOtaStatus = OTA_STATUS_READY;
+                    if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
                 } else if (mOtaStatus == OTA_STATUS_CHECKING) {
+                    parseUpdateInfo();
                     mOtaStatus = OTA_STATUS_HASUPDATE;
+                    if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
                 }
                 break;
             case Downloader.MSG_DOWNLOAD_FAILED:
-                if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
-                } else if (mOtaStatus == OTA_STATUS_CHECKING) {
+                if (mOtaStatus == OTA_STATUS_CHECKING) {
                     mOtaStatus = OTA_STATUS_NOUPDATE;
                 }
+                if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
                 break;
             }
         }
@@ -104,39 +179,66 @@ public class OtaService extends Service {
     public class OtaBinder extends Binder {
         public OtaService getService(Handler h) {
             mActivityHandler = h;
+            if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
             return OtaService.this;
         }
+    }
 
-        public int getStatus() {
-            return mOtaStatus;
-        }
+    public int getStatus() {
+        return mOtaStatus;
+    }
 
-        public int getDownloadStatus() {
-            return mDownloader.mDownloadStatus;
-        }
+    public int getDownloadStatus() {
+        return mDownloader.mDownloadStatus;
+    }
 
-        public int getDownloadProgress() {
+    public int getDownloadProgress() {
+        if (mDownloader.mDownloadFileName.contains("update.zip")) {
             return mDownloader.mDownloadProgress;
+        } else {
+            return 0;
         }
+    }
 
-        public void checkUpdate(String name) {
-            String url = OTA_HOST_URL + name + ".ini";
-            mOtaStatus = OTA_STATUS_CHECKING;
-            mDownloader.newTask(mAppDataPath + "update.ini", url);
+    public int getUpdateSize() {
+        if (mDownloader.mDownloadFileName.contains("update.zip")) {
+            return mDownloader.mDownloadFileSize;
+        } else {
+            return -1;
         }
+    }
 
-        public void downloadUpdate(String name) {
-            String url = OTA_HOST_URL + name + ".zip";
-            mOtaStatus = OTA_STATUS_DOWNLOADING;
-            if (url.equals(mDownloader.mDownloadUrlName)) {
-                mDownloader.resumeTask();
-            } else {
-                mDownloader.newTask(mAppDataPath + "update.zip", url);
-            }
-        }
+    public void reset() {
+        mDownloader.pauseTask();
+        mOtaStatus = OTA_STATUS_INIT;
+        if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+    }
 
-        public void applyUpdate() {
+    public void checkUpdate() {
+        mOtaStatus = OTA_STATUS_CHECKING;
+        if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+        mDownloader.newTask(mAppDataPath + "/update.ini", mUpdateIniUrl);
+    }
+
+    public void downloadUpdate() {
+        mOtaStatus = OTA_STATUS_DOWNLOADING;
+        if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+        if (mUpdateZipUrl.equals(mDownloader.mDownloadUrlName)) {
+            mDownloader.resumeTask();
+        } else {
+            mDownloader.newTask(mAppDataPath + "/update.zip", mUpdateZipUrl);
         }
+    }
+
+    public void downloadPause(boolean pause) {
+        if (pause) {
+            mDownloader.pauseTask();
+        } else {
+            mDownloader.resumeTask();
+        }
+    }
+
+    public void applyUpdate() {
     }
 }
 
