@@ -16,6 +16,8 @@ import android.os.RecoverySystem;
 import android.os.SystemProperties;
 import android.util.Log;
 
+import java.math.BigInteger;
+import java.security.MessageDigest;
 import java.io.*;
 import java.util.*;
 
@@ -290,6 +292,12 @@ public class OtaService extends Service {
 
     public void applyUpdate() {
         if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(OTA_STATUS_APPLY);
+
+        if (mUpdateCheckSum.equals("") || !calulateMd5(UPDATE_FILE_PATH).equals(mUpdateCheckSum)) {
+            if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(OTA_STATUS_ERROR);
+            return;
+        }
+
         try {
             File file = new File(UPDATE_FILE_PATH);
             RecoverySystem.verifyPackage(
@@ -319,6 +327,33 @@ public class OtaService extends Service {
 
     public void onPause() {
         mActivityResume = false;
+    }
+
+    private static String calulateMd5(String path) {
+        MessageDigest   md = null;
+        FileInputStream is = null;
+        File file  = new File(path);
+        byte buf[] = new byte[1024];
+        int  len;
+        if (!file.exists()) {
+            return "";
+        }
+        try {
+            md = MessageDigest.getInstance("MD5");
+            is = new FileInputStream(file);
+            while ((len = is.read(buf, 0, 1024)) != -1) {
+                md.update(buf, 0, len);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        } finally {
+            try {
+                if (is != null) is.close();
+            } catch (Exception e) {}
+        }
+        BigInteger bi = new BigInteger(1, md.digest());
+        return bi.toString(16);
     }
 }
 
