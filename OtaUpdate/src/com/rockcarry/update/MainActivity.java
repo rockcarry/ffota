@@ -74,11 +74,13 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onResume() {
         super.onResume();
+        if (mOtaServ != null) mOtaServ.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if (mOtaServ != null) mOtaServ.onPause();
     }
 
     @Override

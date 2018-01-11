@@ -1,6 +1,9 @@
 package com.rockcarry.update;
 
 import android.app.Service;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -45,6 +48,7 @@ public class OtaService extends Service {
     private String            mAppDataPath= "";
     private SharedPreferences mSharedPref = null;
     private int               mOtaStatus  = 0;
+    private boolean           mActivityResume;
 
     @Override
     public void onCreate() {
@@ -71,12 +75,36 @@ public class OtaService extends Service {
             checkUpdate();
             break;
         }
+
+        mServiceHandler.postDelayed(
+            new Runnable() {
+                @Override
+                public void run() {
+                    if (mActivityHandler != null) {
+                        return;
+                    }
+                    switch (mOtaStatus) {
+                    case OTA_STATUS_INIT:
+                    case OTA_STATUS_NOUPDATE:
+                    case OTA_STATUS_HASUPDATE:
+                        checkUpdate();
+                        break;
+                    case OTA_STATUS_DOWNLOADING:
+                        showNotification(!mActivityResume, true, getResources().getString(R.string.txt_downloading) + " " + mDownloader.mDownloadProgress + "%");
+                        break;
+                    case OTA_STATUS_READY:
+                        showNotification(!mActivityResume, true, getResources().getString(R.string.txt_ready));
+                        break;
+                    }
+                }
+            }, 10000);
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy");
         downloadPause(true);
+        showNotification(false, false, null);
         SharedPreferences.Editor editor = mSharedPref.edit();
         editor.putInt("mOtaStatus", mOtaStatus);
         editor.commit();
@@ -158,16 +186,19 @@ public class OtaService extends Service {
             case Downloader.MSG_DOWNLOAD_PAUSED:
                 if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
                     if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+                    showNotification(!mActivityResume, false, getResources().getString(R.string.txt_downloading) + " " + mDownloader.mDownloadProgress + "%");
                 }
                 break;
             case Downloader.MSG_DOWNLOAD_DONE:
                 if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
                     mOtaStatus = OTA_STATUS_READY;
                     if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+                    showNotification(!mActivityResume, true, getResources().getString(R.string.txt_ready));
                 } else if (mOtaStatus == OTA_STATUS_CHECKING) {
                     parseUpdateInfo();
                     mOtaStatus = OTA_STATUS_HASUPDATE;
                     if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+                    showNotification(!mActivityResume, true, getResources().getString(R.string.txt_findupdate));
                 }
                 break;
             case Downloader.MSG_DOWNLOAD_FAILED:
@@ -175,13 +206,36 @@ public class OtaService extends Service {
                     mOtaStatus = OTA_STATUS_NOUPDATE;
                 }
                 if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+                if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
+                    showNotification(!mActivityResume, true, getResources().getString(R.string.dl_failed));
+                }
                 break;
             }
         }
     };
 
+    private static final int NOTIFICATION_ID = 1;
+    private Notification        mNotification = new Notification();
+    private NotificationManager mNotifyManager= null;
+    private void showNotification(boolean show, boolean sound, String msg) {
+        if (mNotifyManager == null) mNotifyManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        if (show) {
+            PendingIntent pi  = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), 0);
+            mNotification.flags    = Notification.FLAG_ONGOING_EVENT;
+            mNotification.icon     = R.drawable.ic_launcher;
+            mNotification.defaults = sound ? Notification.DEFAULT_SOUND : 0;
+            mNotification.setLatestEventInfo(this, getResources().getString(R.string.app_name), msg, pi);
+            mNotifyManager.notify(NOTIFICATION_ID, mNotification);
+        }
+        else {
+            mNotifyManager.cancel(NOTIFICATION_ID);
+        }
+    }
+
     public class OtaBinder extends Binder {
         public OtaService getService(Handler h) {
+            showNotification(false, false, null);
+            mActivityResume  = true;
             mActivityHandler = h;
             if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
             return OtaService.this;
@@ -197,19 +251,11 @@ public class OtaService extends Service {
     }
 
     public int getDownloadProgress() {
-        if (mDownloader.mDownloadFileName.contains("update.zip")) {
-            return mDownloader.mDownloadProgress;
-        } else {
-            return 0;
-        }
+        return mDownloader.mDownloadFileName.contains("update.zip") ? mDownloader.mDownloadProgress : 0;
     }
 
     public int getUpdateSize() {
-        if (mDownloader.mDownloadFileName.contains("update.zip")) {
-            return mDownloader.mDownloadFileSize;
-        } else {
-            return -1;
-        }
+        return mDownloader.mDownloadFileName.contains("update.zip") ? mDownloader.mDownloadFileSize : -1;
     }
 
     public void reset() {
@@ -264,6 +310,15 @@ public class OtaService extends Service {
             e.printStackTrace();
             if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(OTA_STATUS_ERROR);
         }
+    }
+
+    public void onResume() {
+        mActivityResume = true;
+        showNotification(false, false, null);
+    }
+
+    public void onPause() {
+        mActivityResume = false;
     }
 }
 
