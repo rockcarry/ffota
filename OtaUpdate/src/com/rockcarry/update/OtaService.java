@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
 import android.os.IBinder;
+import android.os.RecoverySystem;
 import android.os.SystemProperties;
 import android.util.Log;
 
@@ -24,6 +25,8 @@ public class OtaService extends Service {
     public  static final int    OTA_STATUS_HASUPDATE   = 3;
     public  static final int    OTA_STATUS_DOWNLOADING = 4;
     public  static final int    OTA_STATUS_READY       = 5;
+    public  static final int    OTA_STATUS_APPLY       = 6;
+    public  static final int    OTA_STATUS_ERROR       = 7;
 
     public  String mDeviceInfo     = "";
     private String mUpdateIniUrl   = "";
@@ -35,6 +38,7 @@ public class OtaService extends Service {
     private static final String TAG = "OtaService";
     private static final String OTASERVICE_SHARED_PREFS = "OTASERVICE_SHARED_PREFS";
     private static final String OTA_HOST_URL = "https://rockcarry.github.io/ffota/files/";
+    private static final String UPDATE_FILE_PATH = "/cache/update.zip";
 
     private OtaBinder         mBinder     = new OtaBinder();
     private Downloader        mDownloader = null;
@@ -226,7 +230,7 @@ public class OtaService extends Service {
         if (mUpdateZipUrl.equals(mDownloader.mDownloadUrlName)) {
             mDownloader.resumeTask();
         } else {
-            mDownloader.newTask(mAppDataPath + "/update.zip", mUpdateZipUrl);
+            mDownloader.newTask(UPDATE_FILE_PATH, mUpdateZipUrl);
         }
     }
 
@@ -239,6 +243,27 @@ public class OtaService extends Service {
     }
 
     public void applyUpdate() {
+        if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(OTA_STATUS_APPLY);
+        try {
+            File file = new File(UPDATE_FILE_PATH);
+            RecoverySystem.verifyPackage(
+                file,
+                new RecoverySystem.ProgressListener() {
+                    @Override
+                    public void onProgress(int progress) {}
+                },
+                null);
+
+            mOtaStatus = OTA_STATUS_INIT;
+            SharedPreferences.Editor editor = mSharedPref.edit();
+            editor.putInt("mOtaStatus", mOtaStatus);
+            editor.commit();
+
+            RecoverySystem.installPackage(this, file);
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(OTA_STATUS_ERROR);
+        }
     }
 }
 

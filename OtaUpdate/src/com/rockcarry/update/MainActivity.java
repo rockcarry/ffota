@@ -147,7 +147,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             mBtnReCheck .setVisibility(View.VISIBLE);
             break;
         case OtaService.OTA_STATUS_DOWNLOADING:
-            mTxtInfo    .setText(getString(R.string.txt_findupdate));
+            mTxtInfo    .setText(getString(R.string.txt_downloading));
             mTxtUpdate  .setVisibility(View.VISIBLE);
             mBarDownload.setVisibility(View.VISIBLE);
             mTxtDownload.setVisibility(View.VISIBLE);
@@ -162,6 +162,16 @@ public class MainActivity extends Activity implements View.OnClickListener {
             mBtnReCheck .setText(getString(R.string.btn_recheck));
             mBtnReCheck .setVisibility(View.VISIBLE);
             break;
+        case OtaService.OTA_STATUS_APPLY:
+            mTxtInfo    .setText(getString(R.string.txt_apply));
+            mBarChecking.setVisibility(View.VISIBLE);
+            break;
+        case OtaService.OTA_STATUS_ERROR:
+            mTxtInfo    .setText(getString(R.string.txt_error));
+            mBarChecking.setVisibility(View.VISIBLE);
+            mBtnReCheck .setText(getString(R.string.btn_recheck));
+            mBtnReCheck .setVisibility(View.VISIBLE);
+            break;
         }
     }
 
@@ -169,6 +179,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         @Override
         public void handleMessage(Message msg) {
             updateUI(msg.what);
+
             switch (msg.what) {
             case OtaService.OTA_STATUS_HASUPDATE:
             case OtaService.OTA_STATUS_DOWNLOADING:

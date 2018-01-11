@@ -6,7 +6,10 @@
     <string name="txt_noupdate">System is already the newest !</string>
     <string name="txt_checking">Checking the update now ...</string>
     <string name="txt_findupdate">Find an update for device !</string>
+    <string name="txt_downloading">Downloading update package now ...</string>
     <string name="txt_ready">Update package has been downloaded !</string>
+    <string name="txt_apply">Applying update now ...</string>
+    <string name="txt_error">Update failed !</string>
 
     <string name="btn_docheck">Click to Check Update</string>
     <string name="btn_download">Download Update</string>
