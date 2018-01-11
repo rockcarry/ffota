@@ -173,7 +173,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             case OtaService.OTA_STATUS_HASUPDATE:
             case OtaService.OTA_STATUS_DOWNLOADING:
             case OtaService.OTA_STATUS_READY:
-                if (msg.arg1 != Downloader.MSG_DOWNLOAD_RUNNING) {
+                if (mOtaServ.getDownloadStatus() != Downloader.MSG_DOWNLOAD_RUNNING) {
                     long   size = mOtaServ.getUpdateSize();
                     String str  = "";
                     if (size > 1024L*1024*1024) {
