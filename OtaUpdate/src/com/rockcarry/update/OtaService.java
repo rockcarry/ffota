@@ -61,7 +61,7 @@ public class OtaService extends Service {
 
         UPDATE_INI_FILE_PATH = getDir("data", Context.MODE_PRIVATE).getAbsolutePath() + "/update.ini";
         UPDATE_ZIP_FILE_PATH = "/cache/update.zip";
-    
+
         mDeviceInfo  = String.format(getString(R.string.txt_devinfo_fmt),
             Build.MODEL, Build.VERSION.RELEASE, Build.DISPLAY,
             SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0],
@@ -131,7 +131,7 @@ public class OtaService extends Service {
         public OtaService getService(Handler h) {
             // when activity attached
             showNotification(false, false, null); // remove notification
-            mActivityResume  = true; // mark as activity resumed 
+            mActivityResume  = true; // mark as activity resumed
             mActivityHandler = h;    // save messaging handler
             if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
             return OtaService.this;

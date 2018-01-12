@@ -19,14 +19,6 @@ import java.io.*;
 import java.net.*;
 
 public class Downloader {
-    private static final String TAG = "Downloader";
-    private static final String DOWNLOADER_SHARED_PREFS = "DOWNLOADER_SHARED_PREFS";
-    private Context           mContext;
-    private Handler           mHandler;
-    private SharedPreferences mSharedPref;
-    private Thread            mThread;
-    private boolean           mPaused;
-
     public static final int MSG_DOWNLOAD_CONNECTING= 0;
     public static final int MSG_DOWNLOAD_CONNECTED = 1;
     public static final int MSG_DOWNLOAD_RUNNING   = 2;
@@ -40,6 +32,14 @@ public class Downloader {
     public int    mDownloadFileOffset;
     public int    mDownloadStatus;
     public int    mDownloadProgress;
+
+    private static final String TAG = "Downloader";
+    private static final String DOWNLOADER_SHARED_PREFS = "DOWNLOADER_SHARED_PREFS";
+    private Context           mContext   = null;
+    private Handler           mHandler   = null;
+    private SharedPreferences mSharedPref= null;
+    private Thread            mThread    = null;
+    private boolean           mPaused    = false;
 
     public Downloader(Context context, Handler handler) {
         mContext    = context;
@@ -55,30 +55,22 @@ public class Downloader {
         }
     }
 
-    public void newTask(final String filename, final String urlname) {
-        if (mThread != null) return;
+    public boolean newTask(final String filename, final String urlname, final int offset) {
+        if (mThread != null) return false;
         mPaused = false;
         mThread = new Thread() {
             @Override
             public void run() {
-                download(filename, urlname, 0);
+                download(filename, urlname, offset);
                 mThread = null;
             }
         };
         mThread.start();
+        return true;
     }
 
-    public void resumeTask() {
-        if (mThread != null) return;
-        mPaused = false;
-        mThread = new Thread() {
-            @Override
-            public void run() {
-                download(mDownloadFileName, mDownloadUrlName, mDownloadFileOffset);
-                mThread = null;
-            }
-        };
-        mThread.start();
+    public boolean resumeTask() {
+        return newTask(mDownloadFileName, mDownloadUrlName, mDownloadFileOffset);
     }
 
     public void pauseTask() {
@@ -97,6 +89,7 @@ public class Downloader {
         byte[]            buf  = new byte[1024];
         int               len  = 0;
 
+        Log.d(TAG, "download filename: " + filename + ", urlname: " + urlname + ", offset: " + offset);
         mDownloadFileName   = filename;
         mDownloadUrlName    = urlname;
         mDownloadFileSize   = 0;
@@ -130,6 +123,13 @@ public class Downloader {
             mDownloadStatus = MSG_DOWNLOAD_CONNECTED;
             if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
 
+            // check file
+            if (!file.exists() || file.length() != mDownloadFileSize) {
+                Log.w(TAG, "file dose not exists or incorrect size, can't resume download !");
+                Log.w(TAG, "so we should re-download it from offset 0.");
+                mDownloadFileOffset = 0;
+            }
+
             // try partial download
             conn = (HttpURLConnection) url.openConnection();
             if (url.getProtocol().toLowerCase().equals("https")) {
@@ -162,7 +162,6 @@ public class Downloader {
                     mDownloadProgress = progress;
                     if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
                 }
-//              Log.d(TAG, "download progress: " + mDownloadProgress);
             }
             mDownloadStatus = mDownloadFileOffset == mDownloadFileSize ? MSG_DOWNLOAD_DONE : MSG_DOWNLOAD_PAUSED;
             if (mHandler != null) mHandler.sendEmptyMessage(mDownloadStatus);
