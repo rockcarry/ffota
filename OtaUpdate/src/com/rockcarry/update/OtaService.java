@@ -103,7 +103,7 @@ public class OtaService extends Service {
                         break;
                     }
                 }
-            }, 10000);
+            }, 30000);
         //-- for BootReceiver auto check
     }
 
