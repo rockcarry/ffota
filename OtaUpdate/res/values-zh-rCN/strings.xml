@@ -5,7 +5,7 @@
 
     <string name="txt_noupdate">当前系统已是最新 !</string>
     <string name="txt_checking">正在检查系统更新 ...</string>
-    <string name="txt_findupdate">找到系统升级包 !</string>
+    <string name="txt_findupdate">有可用的系统升级包 !</string>
     <string name="txt_downloading">正在下载升级包 ...</string>
     <string name="txt_ready">系统升级包下载完成 !</string>
     <string name="txt_apply">正在进行升级 ...</string>

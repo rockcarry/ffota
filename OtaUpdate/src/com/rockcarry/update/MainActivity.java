@@ -49,14 +49,15 @@ public class MainActivity extends Activity implements View.OnClickListener {
         mBtnDownload.setOnClickListener(this);
         mBtnApply   .setOnClickListener(this);
 
+        // init ui
+        updateUI(-1);
+
         // start record service
         Intent i = new Intent(MainActivity.this, OtaService.class);
         startService(i);
 
         // bind record service
         bindService(i, mOtaServConn, Context.BIND_AUTO_CREATE);
-
-        updateUI(-1);
     }
 
     @Override
@@ -87,35 +88,33 @@ public class MainActivity extends Activity implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId()) {
         case R.id.btn_recheck:
-            if (mOtaServ.getStatus() == OtaService.OTA_STATUS_DOWNLOADING) {
+            if (mOtaServ.mOtaStatus == OtaService.OTA_STATUS_DOWNLOADING) {
                 mOtaServ.reset();
             } else {
                 mOtaServ.checkUpdate();
             }
             break;
-        case R.id.btn_download: {
-                mBtnDownload.setEnabled(false);
-                if (mOtaServ.getStatus() == OtaService.OTA_STATUS_DOWNLOADING) {
-                    if (mOtaServ.getDownloadStatus() == Downloader.MSG_DOWNLOAD_RUNNING) {
-                        mOtaServ.downloadPause(true);
-                    } else {
-                        mOtaServ.downloadPause(false);
-                    }
+        case R.id.btn_download:
+            mBtnDownload.setEnabled(false);
+            if (mOtaServ.mOtaStatus == OtaService.OTA_STATUS_DOWNLOADING) {
+                if (mOtaServ.getDownloadStatus() == Downloader.MSG_DOWNLOAD_RUNNING) {
+                    mOtaServ.downloadPause();
                 } else {
-                    mBtnDownload.setText(getString(R.string.btn_pause_dl));
-                    mBarDownload.setProgress(0);
-                    mOtaServ.downloadUpdate();
+                    mOtaServ.downloadResume();
                 }
+            } else {
+                mBtnDownload.setText(getString(R.string.btn_pause_dl));
+                mBarDownload.setProgress(0);
+                mOtaServ.downloadOtaPackage();
             }
             break;
         case R.id.btn_apply:
-            mOtaServ.applyUpdate();
+            mOtaServ.applyOtaPackage();
             break;
         }
     }
 
     private void updateUI(int status) {
-        mTxtInfo    .setVisibility(View.VISIBLE);
         mTxtUpdate  .setVisibility(View.GONE);
         mTxtDownload.setVisibility(View.GONE);
         mBtnReCheck .setVisibility(View.GONE);
@@ -128,17 +127,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
         case OtaService.OTA_STATUS_INIT:
         case OtaService.OTA_STATUS_NOUPDATE:
             mTxtInfo    .setText(status == OtaService.OTA_STATUS_INIT ? "" : getString(R.string.txt_noupdate));
-            mBtnReCheck .setText(getString(R.string.btn_docheck ));
-            mTxtUpdate  .setVisibility(View.VISIBLE);
-            mBtnReCheck .setVisibility(View.VISIBLE);
             mTxtUpdate  .setText(mOtaServ.mDeviceInfo);
+            mTxtUpdate  .setVisibility(View.VISIBLE);
+            mBtnReCheck .setText(getString(R.string.btn_docheck));
+            mBtnReCheck .setVisibility(View.VISIBLE);
             break;
         case OtaService.OTA_STATUS_CHECKING:
             mTxtInfo    .setText(getString(R.string.txt_checking));
+            mBarChecking.setVisibility(View.VISIBLE);
             mBtnReCheck .setText(getString(R.string.btn_docheck ));
             mBtnReCheck .setEnabled(false);
             mBtnReCheck .setVisibility(View.VISIBLE);
-            mBarChecking.setVisibility(View.VISIBLE);
             break;
         case OtaService.OTA_STATUS_HASUPDATE:
             mTxtInfo    .setText(getString(R.string.txt_findupdate));
@@ -187,7 +186,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             case OtaService.OTA_STATUS_DOWNLOADING:
             case OtaService.OTA_STATUS_READY:
                 if (mOtaServ.getDownloadStatus() != Downloader.MSG_DOWNLOAD_RUNNING) {
-                    long   size = mOtaServ.getUpdateSize();
+                    long   size = mOtaServ.getOtaPackageSize();
                     String str  = "";
                     if (size > 1024L*1024*1024) {
                         str = String.format("%.2f GB", (double)size / 1024L*1024*1024);
