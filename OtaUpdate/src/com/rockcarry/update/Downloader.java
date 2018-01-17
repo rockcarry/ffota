@@ -56,7 +56,10 @@ public class Downloader {
     }
 
     public boolean newTask(final String filename, final String urlname, final int offset) {
-        if (mThread != null) return false;
+        if (mThread != null) {
+//          return false;
+            try { mThread.join(); } catch (Exception e) { e.printStackTrace(); }
+        }
         mPaused = false;
         mThread = new Thread() {
             @Override
@@ -130,20 +133,23 @@ public class Downloader {
                 mDownloadFileOffset = 0;
             }
 
-            // try partial download
-            conn = (HttpURLConnection) url.openConnection();
-            if (url.getProtocol().toLowerCase().equals("https")) {
-                trustAllHosts();
-                ((HttpsURLConnection)conn).setHostnameVerifier(DO_NOT_VERIFY);
+            //++ try partial download, if needed
+            if (mDownloadFileOffset > 0) {
+                conn = (HttpURLConnection) url.openConnection();
+                if (url.getProtocol().toLowerCase().equals("https")) {
+                    trustAllHosts();
+                    ((HttpsURLConnection)conn).setHostnameVerifier(DO_NOT_VERIFY);
+                }
+                conn.setConnectTimeout(5000);
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept-Encoding", "identity");
+                conn.setRequestProperty("Range", "bytes=" + mDownloadFileOffset + "-" + mDownloadFileSize);
+                if (conn.getResponseCode() != HttpStatus.SC_PARTIAL_CONTENT) {
+                    Log.d(TAG, "unable to start partial download !");
+                    mDownloadFileOffset = 0;
+                }
             }
-            conn.setConnectTimeout(5000);
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Accept-Encoding", "identity");
-            conn.setRequestProperty("Range", "bytes=" + mDownloadFileOffset + "-" + mDownloadFileSize);
-            if (conn.getResponseCode() != HttpStatus.SC_PARTIAL_CONTENT) {
-                Log.d(TAG, "unable to start partial download !");
-                mDownloadFileOffset = 0;
-            }
+            //-- try partial download, if needed
 
             Log.d(TAG, "download file name  : " + mDownloadFileName  );
             Log.d(TAG, "download file url   : " + mDownloadUrlName   );

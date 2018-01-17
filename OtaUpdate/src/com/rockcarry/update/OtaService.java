@@ -34,6 +34,7 @@ public class OtaService extends Service {
     public  static final int    OTA_STATUS_ERROR       = 7;
 
     public  String mDeviceInfo     = "";
+    public  String mUpdateIniName  = "";
     private String mUpdateIniUrl   = "";
     private String mUpdateZipUrl   = "";
     public  String mUpdateTarget   = "";
@@ -41,9 +42,12 @@ public class OtaService extends Service {
     public  String mUpdateDetail   = "";
     public  int    mOtaStatus      = 0;
 
-    private static final String TAG = "OtaService";
-    private static final String OTA_SHARED_PREFS = "OTA_SHARED_PREFS";
-    private static final String OTA_SERVER_URL   = "https://rockcarry.github.io/ffota/files/";
+    private static final String   TAG = "OtaService";
+    private static final String   OTA_SHARED_PREFS = "OTA_SHARED_PREFS";
+    private static final String[] OTA_SERVER_LIST  = {
+        "https://rockcarry.github.io/ffota/files/",
+        "http://rockcarry.gitee.io/ffota/files/",
+    };
 
     private String UPDATE_INI_FILE_PATH   = null;
     private String UPDATE_ZIP_FILE_PATH   = null;
@@ -51,6 +55,7 @@ public class OtaService extends Service {
     private Downloader        mDownloader = null;
     private SharedPreferences mSharedPref = null;
     private boolean           mActivityResume;
+    private int               mServerCheckIdx;
 
     @Override
     public void onCreate() {
@@ -62,12 +67,12 @@ public class OtaService extends Service {
         UPDATE_INI_FILE_PATH = getDir("data", Context.MODE_PRIVATE).getAbsolutePath() + "/update.ini";
         UPDATE_ZIP_FILE_PATH = "/cache/update.zip";
 
-        mDeviceInfo  = String.format(getString(R.string.txt_devinfo_fmt),
+        mDeviceInfo = String.format(getString(R.string.txt_devinfo_fmt),
             Build.MODEL, Build.VERSION.RELEASE, Build.DISPLAY,
             SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0],
             SystemProperties.get("ro.product.otaid", "unknown"));
-        mUpdateIniUrl= OTA_SERVER_URL + String.format("%s-%s-%s", SystemProperties.get("ro.product.otaid", "unknown"),
-            Build.VERSION.RELEASE, SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0]) + ".ini";
+        mUpdateIniName = String.format("%s-%s-%s.ini", SystemProperties.get("ro.product.otaid", "unknown"),
+            Build.VERSION.RELEASE, SystemProperties.get("ro.build.version.incremental", "unknown").split("-")[0]);
 
         // init for mOtaStatus
         switch (mOtaStatus) {
@@ -159,6 +164,8 @@ public class OtaService extends Service {
     public void checkUpdate() {
         saveOtaStatus(OTA_STATUS_CHECKING);
         if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
+        mServerCheckIdx = 0;
+        mUpdateIniUrl   = OTA_SERVER_LIST[mServerCheckIdx++] + mUpdateIniName;
         mDownloader.newTask(UPDATE_INI_FILE_PATH, mUpdateIniUrl, 0);
     }
 
@@ -308,7 +315,12 @@ public class OtaService extends Service {
                 break;
             case Downloader.MSG_DOWNLOAD_FAILED:
                 if (mOtaStatus == OTA_STATUS_CHECKING) {
-                    saveOtaStatus(OTA_STATUS_NOUPDATE);
+                    if (mServerCheckIdx < OTA_SERVER_LIST.length) {
+                        mUpdateIniUrl = OTA_SERVER_LIST[mServerCheckIdx++] + mUpdateIniName;
+                        mDownloader.newTask(UPDATE_INI_FILE_PATH, mUpdateIniUrl, 0);
+                    } else {
+                        saveOtaStatus(OTA_STATUS_NOUPDATE);
+                    }
                 }
                 if (mActivityHandler != null) mActivityHandler.sendEmptyMessage(mOtaStatus);
                 if (mOtaStatus == OTA_STATUS_DOWNLOADING) {
