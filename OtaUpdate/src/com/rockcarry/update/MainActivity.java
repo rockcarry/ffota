@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.app.ProgressDialog;
 import android.util.Log;
 
 public class MainActivity extends Activity implements View.OnClickListener {
@@ -109,6 +110,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             }
             break;
         case R.id.btn_apply:
+            ProgressDialog.show(MainActivity.this, "", getString(R.string.Upgrade));
             mOtaServ.applyOtaPackage();
             break;
         }
@@ -189,9 +191,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     long   size = mOtaServ.getOtaPackageSize();
                     String str  = "";
                     if (size > 1024L*1024*1024) {
-                        str = String.format("%.2f GB", (double)size / 1024L*1024*1024);
+                        str = String.format("%.2f GB", (double)size / (1024L*1024*1024));
                     } else if (size > 1024L*1024) {
-                        str = String.format("%.2f MB", (double)size / 1024L*1024);
+                        str = String.format("%.2f MB", (double)size / (1024L*1024));
                     } else if (size > 1024L) {
                         str = String.format("%.2f KB", (double)size / 1024L);
                     } else if (size > 0) {

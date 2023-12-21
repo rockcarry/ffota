@@ -24,8 +24,9 @@
     <string name="dl_paused">paused</string>
     <string name="dl_done">done.</string>
     <string name="dl_failed">error !</string>
+    <string name="Upgrade">Upgrading...</string>
 
     <string name="txt_devinfo_fmt" formatted="false">"Device Infomation\n\nDevice Model: %s\nAndroid Ver : %s\nFirmware Ver: %s\nBuild Number: %s\nOTA Id      : %s\n"</string>
     <string name="txt_update_fmt0" formatted="false">"Update Package Infomation\n\nBuild Number : %s\nMD5 Checksum : %s\n\nUpdate Details:\n\n%s\n"</string>
-    <string name="txt_update_fmt1" formatted="false">"Update Package Infomation\n\nBuild Number : %s\nFile Size    :%s\nMD5 Checksum : %s\n\nUpdate Details:\n\n%s\n"</string>
+    <string name="txt_update_fmt1" formatted="false">"Update Package Infomation\n\nBuild Number : %s\nFile Size    : %s\nMD5 Checksum : %s\n\nUpdate Details:\n\n%s\n"</string>
 </resources>

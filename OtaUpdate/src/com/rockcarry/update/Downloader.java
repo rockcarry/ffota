@@ -6,7 +6,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import org.apache.http.HttpStatus;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import javax.net.ssl.HostnameVerifier;
@@ -51,7 +50,7 @@ public class Downloader {
         mDownloadFileOffset = mSharedPref.getInt   ("mDownloadFileOffset", 0 );
         mDownloadStatus     = mSharedPref.getInt   ("mDownloadStatus"    , 0 );
         if (mDownloadFileSize > 0) {
-            mDownloadProgress = 100 * mDownloadFileOffset / mDownloadFileSize;
+            mDownloadProgress = (int)((long)100 * mDownloadFileOffset / mDownloadFileSize);
         }
     }
 
@@ -115,7 +114,7 @@ public class Downloader {
             conn.setConnectTimeout(5000);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            if (conn.getResponseCode() == HttpStatus.SC_OK) {
+            if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                 mDownloadFileSize = conn.getContentLength();
             } else {
                 Log.w(TAG, "failed to get http response code !");
@@ -144,7 +143,7 @@ public class Downloader {
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept-Encoding", "identity");
                 conn.setRequestProperty("Range", "bytes=" + mDownloadFileOffset + "-" + mDownloadFileSize);
-                if (conn.getResponseCode() != HttpStatus.SC_PARTIAL_CONTENT) {
+                if (conn.getResponseCode() != HttpURLConnection.HTTP_PARTIAL) {
                     Log.d(TAG, "unable to start partial download !");
                     mDownloadFileOffset = 0;
                 }
@@ -162,7 +161,7 @@ public class Downloader {
             while (!mPaused && (len = is.read(buf)) != -1) {
                 rf.write(buf, 0, len);
                 mDownloadFileOffset += len;
-                int progress = 100 * mDownloadFileOffset / mDownloadFileSize;
+                int progress = (int)((long)100 * mDownloadFileOffset / mDownloadFileSize);
                 if (mDownloadProgress != progress) {
                     mDownloadStatus   = MSG_DOWNLOAD_RUNNING;
                     mDownloadProgress = progress;

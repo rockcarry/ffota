@@ -9,6 +9,8 @@ LOCAL_PACKAGE_NAME := OtaUpdate
 
 LOCAL_CERTIFICATE := platform
 
+LOCAL_PRIVATE_PLATFORM_APIS := true
+
 include $(BUILD_PACKAGE)
 
 # Use the folloing include to make our test apk.
